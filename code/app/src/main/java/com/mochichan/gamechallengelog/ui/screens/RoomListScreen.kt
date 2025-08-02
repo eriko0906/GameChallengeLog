@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.CircleShape // ← これを追加
 import androidx.compose.ui.draw.clip // ← これを追加
 import androidx.compose.ui.layout.ContentScale // ← これを追加
 import coil.compose.AsyncImage // ← これを追加
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Home
 
 @Composable
 fun RoomListScreen(
@@ -125,21 +127,42 @@ fun RoomListScreen(
 fun RoomCard(roomWithCount: GameRoomWithPenaltyCount, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        onClick = onClick
+        onClick = onClick,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp) // 少し影を薄くする
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = roomWithCount.gameRoom.name, // ルーム名
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 左側のアイコン
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "ルームアイコン",
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                // データベースから取得したペナルティ件数を表示
-                text = "未完了のペナルティ: ${roomWithCount.penaltyCount} 件 ${if (roomWithCount.penaltyCount > 0) "🔥" else "✨"}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (roomWithCount.penaltyCount > 0) MaterialTheme.colorScheme.error else LocalContentColor.current
+            Spacer(modifier = Modifier.width(16.dp))
+            // 中央のテキスト部分
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = roomWithCount.gameRoom.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "未完了のペナルティ: ${roomWithCount.penaltyCount} 件",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (roomWithCount.penaltyCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // 右側の矢印アイコン
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "詳細へ",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
