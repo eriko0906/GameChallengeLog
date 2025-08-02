@@ -35,7 +35,7 @@ class RoomDetailViewModel(application: Application, val roomId: String) : Androi
         )
 
     // --- ↓↓↓ この対戦履歴の定義が追加されていることが重要です ↓↓↓ ---
-    val matchHistory: StateFlow<List<MatchHistory>> = gameDao.getMatchHistoryForRoom(roomId)
+    val matchHistory: StateFlow<List<MatchHistoryItem>> = gameDao.getMatchHistoryItemsForRoom(roomId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

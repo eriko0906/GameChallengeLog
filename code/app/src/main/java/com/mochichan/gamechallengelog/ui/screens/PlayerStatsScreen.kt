@@ -21,6 +21,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.mochichan.gamechallengelog.data.PlayerStats
 import com.mochichan.gamechallengelog.ui.viewmodels.PlayerStatsViewModel
+import coil.compose.AsyncImage
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.Person
 
 // ViewModelを生成するための「工場」
 class PlayerStatsViewModelFactory(private val application: Application, private val roomId: String) : ViewModelProvider.Factory {
@@ -83,6 +88,7 @@ fun PlayerStatsScreen(navController: NavController, roomId: String?) {
 }
 
 // 成績一行分のUIを部品として定義
+// --- ↓↓↓ PlayerStatsRowを、新しいデータ構造に合わせて修正 ↓↓↓ ---
 @Composable
 fun PlayerStatsRow(rank: Int, stats: PlayerStats, maxWins: Int) {
     Row(
@@ -95,15 +101,40 @@ fun PlayerStatsRow(rank: Int, stats: PlayerStats, maxWins: Int) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.width(32.dp)
         )
+        // アイコン表示
+        if (!stats.user?.iconUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = stats.user?.iconUrl,
+                contentDescription = "プレイヤーアイコン",
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = "デフォルトアイコン",
+                modifier = Modifier.size(40.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        // テキスト部分
         Column(modifier = Modifier.weight(1f)) {
-            Text(stats.playerName ?: "アプリユーザー", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = if (stats.user != null) {
+                    stats.user.name // アプリユーザーなら最新のユーザー名
+                } else {
+                    "${stats.player.guestName} (ゲスト)" // ゲストならゲスト名
+                },
+                style = MaterialTheme.typography.bodyLarge
+            )
             Text(
                 "${stats.winCount}勝 / ${stats.lossCount}敗",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(4.dp))
-            // 簡易的な棒グラフ
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

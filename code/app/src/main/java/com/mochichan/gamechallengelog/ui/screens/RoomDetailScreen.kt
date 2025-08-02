@@ -42,6 +42,7 @@ import com.mochichan.gamechallengelog.ui.viewmodels.RoomDetailViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.mochichan.gamechallengelog.data.MatchHistoryItem
 
 // RoomDetailViewModelFactoryは変更なし
 
@@ -88,7 +89,7 @@ fun RoomDetailContent(
     room: GameRoom,
     players: List<PlayerWithDetails>,
     penalties: List<PenaltyWithPlayer>,
-    history: List<MatchHistory>,
+    history: List<MatchHistoryItem>,
     user: User?,
     viewModel: RoomDetailViewModel
 ) {
@@ -251,6 +252,7 @@ fun RoomDetailContent(
                 }
             } else {
                 items(players) { playerWithDetails ->
+                    // --- ↓↓↓ ここのUIを、新しいデータ構造に合わせて修正 ↓↓↓ ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -274,9 +276,9 @@ fun RoomDetailContent(
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
                             text = if (playerWithDetails.user != null) {
-                                playerWithDetails.user.name
+                                playerWithDetails.user.name // アプリユーザーなら最新のユーザー名
                             } else {
-                                "${playerWithDetails.player.guestName} (ゲスト)"
+                                "${playerWithDetails.player.guestName} (ゲスト)" // ゲストならゲスト名
                             },
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -298,6 +300,7 @@ fun RoomDetailContent(
                 }
             } else {
                 items(penalties) { penaltyWithPlayer ->
+                    // --- ↓↓↓ ここのUIを、新しいデータ構造に合わせて修正 ↓↓↓ ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -309,7 +312,13 @@ fun RoomDetailContent(
                             }
                         )
                         Text(
-                            text = "${penaltyWithPlayer.penalty.description} (担当: ${penaltyWithPlayer.player.guestName ?: "アプリユーザー"})"
+                            text = "${penaltyWithPlayer.penalty.description} (担当: ${
+                                if (penaltyWithPlayer.playerWithDetails.user != null) {
+                                    penaltyWithPlayer.playerWithDetails.user.name // アプリユーザーなら最新のユーザー名
+                                } else {
+                                    penaltyWithPlayer.playerWithDetails.player.guestName // ゲストならゲスト名
+                                }
+                            })"
                         )
                     }
                 }
@@ -328,10 +337,23 @@ fun RoomDetailContent(
                     )
                 }
             } else {
-                items(history) { match ->
+                // --- ↓↓↓ ここの表示ロジックを、より高度なものに書き換えます ↓↓↓ ---
+                items(history) { historyItem ->
                     val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
-                    val dateString = dateFormat.format(match.matchDate)
-                    Text("$dateString ${match.gameName} (勝者: ${match.winnerName ?: "複数"})")
+                    val dateString = dateFormat.format(historyItem.match.matchDate)
+
+                    // 勝者の名前をリストアップする
+                    val winnerNames = historyItem.results
+                        .filter { it.result.outcome == "win" }
+                        .joinToString(", ") { resultWithPlayer ->
+                            if (resultWithPlayer.playerWithDetails.user != null) {
+                                resultWithPlayer.playerWithDetails.user.name // アプリユーザーなら最新の名前
+                            } else {
+                                resultWithPlayer.playerWithDetails.player.guestName ?: "" // ゲストならゲスト名
+                            }
+                        }
+
+                    Text("$dateString ${historyItem.game.name} (勝者: ${if(winnerNames.isBlank()) "なし" else winnerNames})")
                 }
             }
         }

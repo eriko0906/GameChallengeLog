@@ -13,12 +13,13 @@ interface GameDao {
     suspend fun insertRoom(gameRoom: GameRoom)
 
     // ↓↓↓ この命令を、ユーザーIDで絞り込むように修正 ↓↓↓
+    @Transaction
     @Query("""
         SELECT gr.*, (
-            SELECT COUNT(*) FROM penalties p 
-            INNER JOIN matches m ON p.matchId = m.matchId 
+            SELECT COUNT(*) FROM penalties p
+            INNER JOIN matches m ON p.matchId = m.matchId
             WHERE m.roomId = gr.roomId AND p.isCompleted = 0
-        ) as penaltyCount 
+        ) as penaltyCount
         FROM game_rooms gr
         INNER JOIN players p ON gr.roomId = p.roomId
         WHERE p.userId = :userId
@@ -87,17 +88,17 @@ interface GameDao {
     """)
     fun getPendingPenaltiesForRoom(roomId: String): Flow<List<PenaltyWithPlayer>>
 
+    @Transaction
     @Query("""
-        SELECT 
-            p.playerId, 
-            p.guestName as playerName,
-            SUM(CASE WHEN mr.outcome = 'win' THEN 1 ELSE 0 END) as winCount,
-            SUM(CASE WHEN mr.outcome = 'loss' THEN 1 ELSE 0 END) as lossCount
-        FROM players p
-        LEFT JOIN match_results mr ON p.playerId = mr.playerId
-        WHERE p.roomId = :roomId
-        GROUP BY p.playerId
-    """)
+    SELECT 
+        p.*, 
+        SUM(CASE WHEN mr.outcome = 'win' THEN 1 ELSE 0 END) as winCount,
+        SUM(CASE WHEN mr.outcome = 'loss' THEN 1 ELSE 0 END) as lossCount
+    FROM players p
+    LEFT JOIN match_results mr ON p.playerId = mr.playerId
+    WHERE p.roomId = :roomId
+    GROUP BY p.playerId
+""")
     fun getPlayerStatsInRoom(roomId: String): Flow<List<PlayerStats>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -106,21 +107,14 @@ interface GameDao {
     @Query("SELECT * FROM users WHERE userId = :id")
     fun getUserById(id: String): Flow<User?>
 
+    @Transaction
     @Query("""
-        SELECT 
-            m.matchDate,
-            g.name as gameName,
-            GROUP_CONCAT(p.guestName, ', ') as winnerName
-        FROM matches m
-        INNER JOIN games g ON m.gameId = g.gameId
-        LEFT JOIN match_results mr ON m.matchId = mr.matchId AND mr.outcome = 'win'
-        LEFT JOIN players p ON mr.playerId = p.playerId
-        WHERE m.roomId = :roomId
-        GROUP BY m.matchId
-        ORDER BY m.matchDate DESC
+        SELECT * FROM matches
+        WHERE roomId = :roomId
+        ORDER BY matchDate DESC
         LIMIT 5
     """)
-    fun getMatchHistoryForRoom(roomId: String): Flow<List<MatchHistory>>
+    fun getMatchHistoryItemsForRoom(roomId: String): Flow<List<MatchHistoryItem>>
 
     @Transaction
     suspend fun createRoomAndAddCreatorAsPlayer(gameRoom: GameRoom, user: User) {

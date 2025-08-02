@@ -4,20 +4,15 @@ import androidx.room.Embedded
 import androidx.room.Relation
 import java.util.Date
 
-// ペナルティ情報と、それに紐づくプレイヤー情報を一緒に保持するためのデータクラス
+// ペナルティ、担当プレイヤー、そしてそのプレイヤーの最新ユーザー情報を一緒に保持する
 data class PenaltyWithPlayer(
     @Embedded val penalty: Penalty,
     @Relation(
+        entity = Player::class, // playerテーブルを指定
         parentColumn = "assigneePlayerId",
         entityColumn = "playerId"
     )
-    val player: Player
-)
-data class PlayerStats(
-    val playerId: Long,
-    val playerName: String?,
-    val winCount: Int,
-    val lossCount: Int
+    val playerWithDetails: PlayerWithDetails // PlayerからPlayerWithDetailsに変更
 )
 // 対戦履歴を表示するための情報をまとめて保持するデータクラス
 data class MatchHistory(
@@ -31,12 +26,52 @@ data class GameRoomWithPenaltyCount(
     val penaltyCount: Int
 )
 
+// プレイヤー情報と、それに紐づくユーザー情報を一緒に保持する
 data class PlayerWithDetails(
     @Embedded val player: Player,
-    // プレイヤーがアプリユーザーの場合、ここにユーザー情報が入る (ゲストの場合はnull)
     @Relation(
         parentColumn = "userId",
         entityColumn = "userId"
     )
     val user: User?
 )
+
+// 各プレイヤーの戦績と、そのプレイヤーの最新ユーザー情報を一緒に保持する
+data class PlayerStats(
+    @Embedded val player: Player, // playerId, playerNameから変更
+    val winCount: Int,
+    val lossCount: Int,
+    @Relation(
+        parentColumn = "userId",
+        entityColumn = "userId"
+    )
+    val user: User? // user情報を追加
+)
+
+// --- ↓↓↓ 新しいデータクラスを2つ追加します ↓↓↓ ---
+data class MatchResultWithPlayer(
+    @Embedded val result: MatchResult,
+    @Relation(
+        entity = Player::class,
+        parentColumn = "playerId",
+        entityColumn = "playerId"
+    )
+    val playerWithDetails: PlayerWithDetails
+)
+
+data class MatchHistoryItem(
+    @Embedded val match: Match,
+    @Relation(
+        entity = Game::class,
+        parentColumn = "gameId",
+        entityColumn = "gameId"
+    )
+    val game: Game,
+    @Relation(
+        entity = MatchResult::class,
+        parentColumn = "matchId",
+        entityColumn = "matchId"
+    )
+    val results: List<MatchResultWithPlayer>
+)
+// --- ↑↑↑ ここまで ---
