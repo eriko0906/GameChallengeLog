@@ -150,4 +150,8 @@ interface GameDao {
     @Transaction
     @Query("SELECT * FROM matches WHERE roomId = :roomId ORDER BY matchDate DESC")
     fun getAllMatchesWithDetails(roomId: String): Flow<List<MatchWithDetails>>
+
+    // --- ↓↓↓ 新しい命令をここに追加 ↓↓↓ ---
+    @Query("SELECT COUNT(*) FROM users")
+    suspend fun getUserCount(): Int // ユーザー数を数える
 }

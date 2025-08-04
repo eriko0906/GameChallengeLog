@@ -26,6 +26,8 @@ import com.google.accompanist.permissions.rememberPermissionState // ← これ�
 import com.mochichan.gamechallengelog.ui.viewmodels.ProfileViewModel
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.accompanist.permissions.isGranted
+import android.content.Intent // ← これを追加
+import androidx.compose.ui.platform.LocalContext // ← これを追加
 
 @OptIn(ExperimentalPermissionsApi::class) // ← パーミッション用の実験的機能の利用を許可
 @Composable
@@ -46,11 +48,15 @@ fun ProfileScreen(
     // 選択された画像のURIを保持するための変数
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // ギャラリーを起動し、結果を受け取るためのランチャー
+    // --- ↓↓↓ ギャラリーの結果を受け取る部分を、永続化処理を追加して修正します ↓↓↓ ---
+    val context = LocalContext.current
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             if (uri != null) {
+                // 永続的な読み取り許可を取得する
+                val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flag)
                 selectedImageUri = uri
             }
         }

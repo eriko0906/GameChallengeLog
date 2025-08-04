@@ -29,17 +29,16 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         )
 
     init {
-        // ViewModelが作られたときに、ユーザーが存在するかチェックする
+        // --- ↓↓↓ 初期化ロジックを、より安全な方法に修正 ↓↓↓ ---
         viewModelScope.launch {
-            // .first() を使って、Flowから最初のデータ（現在のユーザー情報）を取得する
-            val currentUser = user.first()
-            if (currentUser == null) {
-                // もしユーザーが存在しなければ、デフォルトの「ゲスト」ユーザーを作成する
+            // ユーザーが一人もいない（本当に初回起動の）場合のみ、ゲストユーザーを作成する
+            if (gameDao.getUserCount() == 0) {
                 val guestUser = User(userId = MOCK_USER_ID, name = "ゲスト")
                 gameDao.insertOrUpdateUser(guestUser)
             }
         }
     }
+
 
     // ユーザー情報を更新（または新規作成）する
     // ユーザー情報を更新（または新規作成）する
