@@ -138,9 +138,22 @@ fun ProfileScreen(
             // 名前の入力欄
             OutlinedTextField(
                 value = editingName,
-                onValueChange = { editingName = it },
+                // --- ↓↓↓ 修正箇所1：入力された文字が10文字を超えたら、それ以上は無視するように修正 ↓↓↓ ---
+                onValueChange = {
+                    if (it.length <= 10) {
+                        editingName = it
+                    }
+                },
                 label = { Text("表示名") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                // --- ↓↓↓ 修正箇所2：文字数カウンターを表示するように追加 ↓↓↓ ---
+                supportingText = {
+                    Text(
+                        text = "${editingName.length} / 10",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                    )
+                }
             )
 
             // 更新ボタン
