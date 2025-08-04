@@ -15,7 +15,7 @@ class RecordMatchViewModel(application: Application, roomId: String) : AndroidVi
     private val gameDao = AppDatabase.getInstance(application).gameDao()
 
     // UIに渡すためのデータ
-    val players: StateFlow<List<Player>> = gameDao.getPlayersInRoom(roomId)
+    val playersWithDetails: StateFlow<List<PlayerWithDetails>> = gameDao.getPlayersWithDetailsInRoom(roomId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -43,8 +43,8 @@ class RecordMatchViewModel(application: Application, roomId: String) : AndroidVi
     fun saveMatchResult(
         roomId: String,
         game: Game,
-        winners: List<Player>,
-        losers: List<Player>,
+        winners: List<PlayerWithDetails>, // ← Player から PlayerWithDetails に変更
+        losers: List<PlayerWithDetails>,  // ← Player から PlayerWithDetails に変更
         penaltyDescription: String
     ) {
         viewModelScope.launch {
@@ -54,19 +54,19 @@ class RecordMatchViewModel(application: Application, roomId: String) : AndroidVi
 
             // 2. 勝者の結果を保存する
             winners.forEach { winner ->
-                val result = MatchResult(matchId = matchId, playerId = winner.playerId, outcome = "win")
+                val result = MatchResult(matchId = matchId, playerId = winner.player.playerId, outcome = "win")
                 gameDao.insertMatchResult(result)
             }
 
             // 3. 敗者の結果とペナルティを保存する
             losers.forEach { loser ->
-                val result = MatchResult(matchId = matchId, playerId = loser.playerId, outcome = "loss")
+                val result = MatchResult(matchId = matchId, playerId = loser.player.playerId, outcome = "loss")
                 gameDao.insertMatchResult(result)
 
                 if (penaltyDescription.isNotBlank()) {
                     val penalty = Penalty(
                         matchId = matchId,
-                        assigneePlayerId = loser.playerId,
+                        assigneePlayerId = loser.player.playerId,
                         description = penaltyDescription,
                         isCompleted = false
                     )

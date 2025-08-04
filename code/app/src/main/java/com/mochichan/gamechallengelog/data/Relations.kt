@@ -75,3 +75,43 @@ data class MatchHistoryItem(
     val results: List<MatchResultWithPlayer>
 )
 // --- ↑↑↑ ここまで ---
+
+// ゲームごとの戦績を保持するためのデータクラス
+data class GameStats(
+    @Embedded val player: Player,
+    val winCount: Int,
+    val lossCount: Int,
+    @Relation(
+        parentColumn = "userId",
+        entityColumn = "userId"
+    )
+    val user: User?
+)
+
+// 対戦結果と、それに紐づくプレイヤー（＋最新プロフィール）を一緒に保持する
+data class MatchResultWithPlayerDetails(
+    @Embedded val result: MatchResult,
+    @Relation(
+        entity = Player::class,
+        parentColumn = "playerId",
+        entityColumn = "playerId"
+    )
+    val playerWithDetails: PlayerWithDetails
+)
+
+// 1回の対戦に関する全ての情報（ゲーム、勝敗結果）をまとめて保持する
+data class MatchWithDetails(
+    @Embedded val match: Match,
+    @Relation(
+        parentColumn = "gameId",
+        entityColumn = "gameId"
+    )
+    val game: Game,
+    @Relation(
+        parentColumn = "matchId",
+        entityColumn = "matchId",
+        entity = MatchResult::class
+    )
+    val results: List<MatchResultWithPlayerDetails>
+)
+// --- ↑↑↑ ここまで ---

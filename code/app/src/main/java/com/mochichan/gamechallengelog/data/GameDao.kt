@@ -43,6 +43,9 @@ interface GameDao {
     @Query("SELECT * FROM players WHERE roomId = :roomId")
     fun getPlayersInRoom(roomId: String): Flow<List<Player>>
 
+    @Query("SELECT COUNT(*) FROM players WHERE roomId = :roomId")
+    suspend fun getPlayerCountInRoom(roomId: String): Int
+
     @Query("SELECT * FROM game_rooms WHERE roomId = :id")
     fun getRoomById(id: String): Flow<GameRoom?>
 
@@ -123,10 +126,28 @@ interface GameDao {
         // 2. 新しいルームを作成する
         insertRoom(gameRoom)
         // 3. そのユーザーを、新しいルームのプレイヤーとして追加する
-        val creatorAsPlayer = Player(roomId = gameRoom.roomId, userId = user.userId, guestName = user.name)
+        val creatorAsPlayer = Player(roomId = gameRoom.roomId, userId = user.userId, guestName = null)
         insertPlayer(creatorAsPlayer)
     }
 
     @Query("DELETE FROM players WHERE roomId = :roomId AND userId = :userId")
     suspend fun deletePlayerByUser(roomId: String, userId: String)
+
+    @Transaction
+    @Query("""
+        SELECT *,
+            (SELECT COUNT(*) FROM match_results mr 
+             JOIN matches m ON mr.matchId = m.matchId
+             WHERE mr.playerId = p.playerId AND mr.outcome = 'win' AND m.gameId = :gameId) as winCount,
+            (SELECT COUNT(*) FROM match_results mr 
+             JOIN matches m ON mr.matchId = m.matchId
+             WHERE mr.playerId = p.playerId AND mr.outcome = 'loss' AND m.gameId = :gameId) as lossCount
+        FROM players p
+        WHERE p.roomId = :roomId
+    """)
+    fun getGameStatsInRoom(roomId: String, gameId: Long): Flow<List<GameStats>>
+
+    @Transaction
+    @Query("SELECT * FROM matches WHERE roomId = :roomId ORDER BY matchDate DESC")
+    fun getAllMatchesWithDetails(roomId: String): Flow<List<MatchWithDetails>>
 }

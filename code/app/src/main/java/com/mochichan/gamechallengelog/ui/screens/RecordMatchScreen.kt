@@ -22,7 +22,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.mochichan.gamechallengelog.data.Game
-import com.mochichan.gamechallengelog.data.Player
+import com.mochichan.gamechallengelog.data.PlayerWithDetails
 import com.mochichan.gamechallengelog.ui.viewmodels.RecordMatchViewModel
 
 // ViewModelを生成するための「工場」（変更なし）
@@ -45,12 +45,12 @@ fun RecordMatchScreen(navController: NavController, roomId: String?) {
 
     val application = LocalContext.current.applicationContext as Application
     val viewModel: RecordMatchViewModel = viewModel(factory = RecordMatchViewModelFactory(application, roomId))
-    val players by viewModel.players.collectAsState()
+    val players by viewModel.playersWithDetails.collectAsState()
     val games by viewModel.games.collectAsState()
 
     var selectedGame by remember { mutableStateOf<Game?>(null) }
-    var selectedWinners by remember { mutableStateOf<Set<Player>>(emptySet()) }
-    var selectedLosers by remember { mutableStateOf<Set<Player>>(emptySet()) }
+    var selectedWinners by remember { mutableStateOf<Set<PlayerWithDetails>>(emptySet()) }
+    var selectedLosers by remember { mutableStateOf<Set<PlayerWithDetails>>(emptySet()) }
     var penaltyDescription by remember { mutableStateOf("") }
     var buttonsEnabled by remember { mutableStateOf(true) }
 
@@ -217,7 +217,7 @@ fun RecordMatchScreen(navController: NavController, roomId: String?) {
 
 // プレイヤー選択の行を共通の部品にする
 @Composable
-fun SelectablePlayerRow(player: Player, isSelected: Boolean, onSelect: () -> Unit) {
+fun SelectablePlayerRow(player: PlayerWithDetails, isSelected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -226,6 +226,13 @@ fun SelectablePlayerRow(player: Player, isSelected: Boolean, onSelect: () -> Uni
     ) {
         Checkbox(checked = isSelected, onCheckedChange = null)
         Spacer(modifier = Modifier.width(8.dp))
-        Text(player.guestName ?: "アプリユーザー")
+        // --- ↓↓↓ このTextの表示ロジックを修正しました ↓↓↓ ---
+        Text(
+            if (player.user != null) {
+                player.user.name // アプリユーザーなら最新のユーザー名
+            } else {
+                "${player.player.guestName} (ゲスト)" // ゲストならゲスト名
+            }
+        )
     }
 }
