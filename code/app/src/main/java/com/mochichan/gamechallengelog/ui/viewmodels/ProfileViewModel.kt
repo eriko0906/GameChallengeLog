@@ -10,42 +10,43 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import com.mochichan.gamechallengelog.auth.UserData // ← これを追加
+import kotlinx.coroutines.flow.*
 
-// アプリ内で、どのユーザーが操作しているかを識別するための仮のID
-private const val MOCK_USER_ID = "user_001"
+
 
 class ProfileViewModel(application: Application) : AndroidViewModel(application) {
 
     private val gameDao = AppDatabase.getInstance(application).gameDao()
 
-    // 現在操作しているユーザーの情報をUIに渡す
-    // MOCK_USER_IDは、将来的にログイン機能などを実装した際に、
-    // 実際にログインしているユーザーのIDに置き換える
-    val user: StateFlow<User?> = gameDao.getUserById(MOCK_USER_ID)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
-        )
+    // --- ↓↓↓ この部分を、ログインユーザーに追従するように変更 ↓↓↓ ---
+    private val _user = MutableStateFlow<User?>(null)
+    val user: StateFlow<User?> = _user.asStateFlow()
 
-    init {
-        // --- ↓↓↓ 初期化ロジックを、より安全な方法に修正 ↓↓↓ ---
+    fun loadUser(userData: UserData) {
         viewModelScope.launch {
-            // ユーザーが一人もいない（本当に初回起動の）場合のみ、ゲストユーザーを作成する
-            if (gameDao.getUserCount() == 0) {
-                val guestUser = User(userId = MOCK_USER_ID, name = "ゲスト")
-                gameDao.insertOrUpdateUser(guestUser)
+            gameDao.getUserById(userData.userId).collect { userFromDb ->
+                if (userFromDb == null) {
+                    // DBにユーザーが存在しない場合（初回ログイン時）、Firebaseの情報を元に新規作成
+                    val newUser = User(
+                        userId = userData.userId,
+                        name = userData.username ?: "新規ユーザー",
+                        iconUrl = userData.profilePictureUrl
+                    )
+                    gameDao.insertOrUpdateUser(newUser)
+                    _user.value = newUser
+                } else {
+                    _user.value = userFromDb
+                }
             }
         }
     }
-
 
     // ユーザー情報を更新（または新規作成）する
     // ユーザー情報を更新（または新規作成）する
     fun updateUser(userName: String, iconUrl: String?) { // iconUrlを受け取るように変更
         viewModelScope.launch {
-            val currentUser = user.value ?: User(userId = MOCK_USER_ID, name = "ゲスト")
-            // 名前とアイコンURLの両方を更新した、新しいUserオブジェクトを作成
+            val currentUser = user.value ?: return@launch // ユーザーがいなければ何もしない
             val updatedUser = currentUser.copy(name = userName, iconUrl = iconUrl)
             gameDao.insertOrUpdateUser(updatedUser)
         }

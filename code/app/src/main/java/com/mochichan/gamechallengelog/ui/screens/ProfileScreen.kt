@@ -27,14 +27,15 @@ import com.mochichan.gamechallengelog.ui.viewmodels.ProfileViewModel
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.accompanist.permissions.isGranted
 import android.content.Intent // ← これを追加
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.ui.platform.LocalContext // ← これを追加
 
 @OptIn(ExperimentalPermissionsApi::class) // ← パーミッション用の実験的機能の利用を許可
 @Composable
 fun ProfileScreen(
     navController: NavController,
-    // --- ↓↓↓ ViewModelを受け取るように変更 ↓↓↓ ---
-    viewModel: ProfileViewModel = viewModel()
+    viewModel: ProfileViewModel = viewModel(),
+    onSignOut: () -> Unit // ← サインアウト処理を受け取る
 ) {
     // ViewModelからユーザー情報を取得
     val user by viewModel.user.collectAsState()
@@ -168,6 +169,24 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("この内容で更新する")
+            }
+
+            Spacer(modifier = Modifier.weight(1f)) // 残りのスペースを埋める
+
+            // --- 変更点2：サインアウトボタンを追加します ---
+            OutlinedButton(
+                onClick = {
+                    if (buttonsEnabled) {
+                        buttonsEnabled = false
+                        onSignOut() // MainActivityから渡されたサインアウト処理を実行
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("サインアウト")
             }
         }
     }

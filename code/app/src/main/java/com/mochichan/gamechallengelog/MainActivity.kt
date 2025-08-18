@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlin.getValue
 import com.mochichan.gamechallengelog.auth.GoogleAuthUiClient
 import com.google.android.gms.auth.api.identity.Identity
+import com.mochichan.gamechallengelog.auth.UserData // ← これを追加
 
 class MainActivity : ComponentActivity() {
 
@@ -49,13 +50,8 @@ class MainActivity : ComponentActivity() {
                 val authViewModel = viewModel<AuthViewModel>()
                 val signInState by authViewModel.signInState.collectAsState()
 
-                // ユーザーがログイン成功したら、次の画面に遷移する
-                LaunchedEffect(key1 = signInState.isSuccess) {
-                    if (signInState.isSuccess) {
-                        Toast.makeText(applicationContext, "サインインしました", Toast.LENGTH_LONG).show()
-                        // ここでメインのナビゲーションに切り替える
-                    }
-                }
+                // 現在ログインしているユーザーの情報を取得
+                val signedInUser = googleAuthUiClient.getSignedInUser()
 
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -74,8 +70,19 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                // ログイン状態に応じて表示を切り替え
-                if (googleAuthUiClient.getSignedInUser() == null) {
+                // --- 変更点2：サインイン状態に応じて、表示する画面を切り替えます ---
+                if (signedInUser == null) {
+                    // まだサインインしていない場合：
+
+                    // サインインに成功したら、状態をリセットして画面を再描画させる
+                    LaunchedEffect(key1 = signInState.isSuccess) {
+                        if (signInState.isSuccess) {
+                            Toast.makeText(applicationContext, "サインインしました", Toast.LENGTH_LONG).show()
+                            authViewModel.resetState() // これにより再描画がトリガーされる
+                        }
+                    }
+
+                    // ログイン画面を表示
                     LoginScreen(
                         state = signInState,
                         onSignInClick = {
@@ -91,19 +98,40 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    AppNavigator()
+                    // すでにサインイン済みの場合：
+                    // メインのナビゲーション（AppNavigator）を表示し、ユーザー情報を渡す
+                    AppNavigator(
+                        userData = signedInUser,
+                        onSignOut = {
+                            lifecycleScope.launch {
+                                googleAuthUiClient.signOut()
+                                Toast.makeText(applicationContext, "サインアウトしました", Toast.LENGTH_LONG).show()
+                                // サインアウト後、再描画を促すためにViewModelの状態をリセット
+                                authViewModel.resetState()
+                            }
+                        }
+                    )
                 }
             }
         }
     }
 }
 
+
 @Composable
-fun AppNavigator() {
+fun AppNavigator(userData: UserData,onSignOut: () -> Unit) {
     val navController = rememberNavController()
+
+    // 各ViewModelを一度だけ作成し、必要な画面に渡していく
     val roomListViewModel: RoomListViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
-    // ↓↓↓ アニメーションをゼロにする設定を追加 ↓↓↓
+
+    // --- 変更点4：ViewModelの初期化処理をここで行います ---
+    // LaunchedEffectを使って、最初の表示時に一度だけユーザー情報をViewModelに読み込ませる
+    LaunchedEffect(key1 = userData.userId) {
+        profileViewModel.loadUser(userData)
+        roomListViewModel.loadRoomsForUser(userData)
+    }
     NavHost(
         navController = navController,
         startDestination = "room_list",
@@ -168,8 +196,11 @@ fun AppNavigator() {
             )
         }
         composable("profile") {
-            // --- ↓↓↓ ViewModelを渡すように修正 ↓↓↓ ---
-            ProfileScreen(navController = navController, viewModel = profileViewModel)
+            ProfileScreen(
+                navController = navController,
+                viewModel = profileViewModel,
+                onSignOut = onSignOut
+            )
         }
     }
 }
