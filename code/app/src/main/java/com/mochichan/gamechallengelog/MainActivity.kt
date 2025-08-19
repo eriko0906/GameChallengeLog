@@ -45,13 +45,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        setContent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               {
             GameChallengeLog2Theme {
                 val authViewModel = viewModel<AuthViewModel>()
                 val signInState by authViewModel.signInState.collectAsState()
 
-                // 現在ログインしているユーザーの情報を取得
-                val signedInUser = googleAuthUiClient.getSignedInUser()
+                // --- ↓↓↓ 修正箇所1：ViewModelからサインイン状態を監視するように変更します ↓↓↓ ---
+                val signedInUser by authViewModel.signedInUser.collectAsState(initial = null)
+
+                // --- 修正箇所2：アプリ起動時に一度だけ、サインイン状態を確認します ---
+                LaunchedEffect(Unit) {
+                    authViewModel.checkInitialSignInState(googleAuthUiClient)
+                }
 
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartIntentSenderForResult(),
@@ -61,9 +66,11 @@ class MainActivity : ComponentActivity() {
                                 val signInResult = googleAuthUiClient.signInWithIntent(
                                     intent = result.data ?: return@launch
                                 )
+                                // --- 修正箇所3：サインイン結果をViewModelに通知します ---
                                 authViewModel.onSignInResult(
                                     isSuccess = signInResult.data != null,
-                                    errorMessage = signInResult.errorMessage
+                                    errorMessage = signInResult.errorMessage,
+                                    googleAuthUiClient
                                 )
                             }
                         }
@@ -78,7 +85,6 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(key1 = signInState.isSuccess) {
                         if (signInState.isSuccess) {
                             Toast.makeText(applicationContext, "サインインしました", Toast.LENGTH_LONG).show()
-                            authViewModel.resetState() // これにより再描画がトリガーされる
                         }
                     }
 
@@ -98,17 +104,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    // すでにサインイン済みの場合：
-                    // メインのナビゲーション（AppNavigator）を表示し、ユーザー情報を渡す
                     AppNavigator(
-                        userData = signedInUser,
+                        userData = signedInUser!!,
                         onSignOut = {
-                            lifecycleScope.launch {
-                                googleAuthUiClient.signOut()
-                                Toast.makeText(applicationContext, "サインアウトしました", Toast.LENGTH_LONG).show()
-                                // サインアウト後、再描画を促すためにViewModelの状態をリセット
-                                authViewModel.resetState()
-                            }
+                            // --- 修正箇所4：ViewModelにサインアウトを依頼します ---
+                            authViewModel.signOut(googleAuthUiClient)
+                            Toast.makeText(applicationContext, "サインアウトしました", Toast.LENGTH_LONG).show()
                         }
                     )
                 }
