@@ -1,70 +1,43 @@
 package com.mochichan.gamechallengelog.ui.viewmodels
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mochichan.gamechallengelog.data.*
-import kotlinx.coroutines.flow.SharingStarted
+import com.mochichan.gamechallengelog.data.GameRoom
+import com.mochichan.gamechallengelog.data.Player
+import com.mochichan.gamechallengelog.repository.GameRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class RoomDetailViewModel(application: Application, val roomId: String) : AndroidViewModel(application) {
+class RoomDetailViewModel(private val roomId: String) : ViewModel() {
 
-    private val gameDao = AppDatabase.getInstance(application).gameDao()
+    private val repository = GameRepository()
 
-    val room: StateFlow<GameRoom?> = gameDao.getRoomById(roomId)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
-        )
+    private val _room = MutableStateFlow<GameRoom?>(null)
+    val room: StateFlow<GameRoom?> = _room.asStateFlow()
 
-    val playersWithDetails: StateFlow<List<PlayerWithDetails>> = gameDao.getPlayersWithDetailsInRoom(roomId)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _players = MutableStateFlow<List<Player>>(emptyList())
+    val players: StateFlow<List<Player>> = _players.asStateFlow()
 
-    val pendingPenalties: StateFlow<List<PenaltyWithPlayer>> = gameDao.getPendingPenaltiesForRoom(roomId)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    // --- ↓↓↓ この対戦履歴の定義が追加されていることが重要です ↓↓↓ ---
-    val matchHistory: StateFlow<List<MatchHistoryItem>> = gameDao.getMatchHistoryItemsForRoom(roomId)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-
-    fun addGuestPlayer(roomId: String, guestName: String) {
+    init {
+        // ViewModelが作られた瞬間に、ルームとプレイヤーの情報をリアルタイムで監視し始める
         viewModelScope.launch {
-            if (guestName.isNotBlank()) {
-                val newPlayer = Player(
-                    roomId = roomId,
-                    guestName = guestName
-                )
-                gameDao.insertPlayer(newPlayer)
+            repository.getRoomStream(roomId).collect { roomData ->
+                _room.value = roomData
+            }
+        }
+        viewModelScope.launch {
+            repository.getPlayersStream(roomId).collect { playerData ->
+                _players.value = playerData
             }
         }
     }
 
-    fun completePenalty(penalty: Penalty) {
+    // UIから「ゲストを追加して！」とリクエストされたときに実行する
+    fun addGuestPlayer(guestName: String) {
         viewModelScope.launch {
-            val updatedPenalty = penalty.copy(isCompleted = true)
-            gameDao.updatePenalty(updatedPenalty)
-        }
-    }
-
-    fun leaveRoom(userId: String) {
-        viewModelScope.launch {
-            gameDao.leaveRoomAndDeleteIfLastPlayer(roomId, userId)
+            repository.addGuestPlayer(roomId, guestName)
         }
     }
 }

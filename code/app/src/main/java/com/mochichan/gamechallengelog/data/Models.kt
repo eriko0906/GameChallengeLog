@@ -1,65 +1,50 @@
 package com.mochichan.gamechallengelog.data
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
-@Entity(tableName = "users")
+// Firestore用のデータクラス
+
 data class User(
-    @PrimaryKey val userId: String,
-    val name: String,
+    val userId: String = "",
+    val name: String = "",
     val iconUrl: String? = null
 )
 
-@Entity(tableName = "game_rooms")
 data class GameRoom(
-    @PrimaryKey val roomId: String,
-    val name: String
+    val roomId: String = "",
+    val name: String = "",
+    val memberIds: List<String> = emptyList() // このルームに参加している全ユーザーのIDリスト
 )
 
-@Entity(tableName = "players")
+// Playerは、各ルームの「サブコレクション」として保存します
 data class Player(
-    @PrimaryKey(autoGenerate = true) val playerId: Long = 0,
-    val roomId: String,
-    val userId: String? = null,
+    val userId: String = "", // GoogleサインインのID
+    val name: String = "",   // ユーザー名（非正規化）
+    val iconUrl: String? = null,
+    val isGuest: Boolean = false,
     val guestName: String? = null
 )
 
-@Entity(tableName = "games")
 data class Game(
-    @PrimaryKey(autoGenerate = true) val gameId: Long = 0,
-    val roomId: String,
-    val name: String
+    val gameId: String = "",
+    val name: String = ""
 )
 
-@Entity(tableName = "matches")
 data class Match(
-    @PrimaryKey(autoGenerate = true) val matchId: Long = 0,
-    val roomId: String,
-    val gameId: Long,
-    val matchDate: Date
+    val matchId: String = "",
+    val gameId: String = "",
+    val gameName: String = "",
+    @ServerTimestamp val matchDate: Date? = null,
+    val winnerIds: List<String> = emptyList(),
+    val loserIds: List<String> = emptyList()
 )
 
-@Entity(tableName = "match_results")
-data class MatchResult(
-    @PrimaryKey(autoGenerate = true) val resultId: Long = 0,
-    val matchId: Long,
-    val playerId: Long,
-    val outcome: String
-)
-
-@Entity(tableName = "penalties")
 data class Penalty(
-    @PrimaryKey(autoGenerate = true) val penaltyId: Long = 0,
-    val matchId: Long,
-    val assigneePlayerId: Long,
-    val description: String,
-    val isCompleted: Boolean
-)
-
-@Entity(tableName = "penalty_templates")
-data class PenaltyTemplate(
-    @PrimaryKey(autoGenerate = true) val templateId: Long = 0,
-    val roomId: String,
-    val description: String
+    val penaltyId: String = "",
+    val matchId: String = "",
+    val assigneePlayerId: String = "",
+    val description: String = "",
+    val isCompleted: Boolean = false,
+    @ServerTimestamp val createdAt: Date? = null
 )

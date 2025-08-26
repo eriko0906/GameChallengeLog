@@ -1,54 +1,47 @@
 package com.mochichan.gamechallengelog.ui.viewmodels
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mochichan.gamechallengelog.data.AppDatabase
+import com.mochichan.gamechallengelog.auth.UserData
 import com.mochichan.gamechallengelog.data.User
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
-import com.mochichan.gamechallengelog.auth.UserData // ← これを追加
+import com.mochichan.gamechallengelog.repository.GameRepository
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
+class ProfileViewModel : ViewModel() {
 
+    private val repository = GameRepository()
 
-class ProfileViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val gameDao = AppDatabase.getInstance(application).gameDao()
-
-    // --- ↓↓↓ この部分を、ログインユーザーに追従するように変更 ↓↓↓ ---
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user.asStateFlow()
 
     fun loadUser(userData: UserData) {
         viewModelScope.launch {
-            gameDao.getUserById(userData.userId).collect { userFromDb ->
+            // --- ↓↓↓ リアルタイムでユーザー情報を監視するように修正 ↓↓↓ ---
+            repository.getUserStream(userData.userId).collect { userFromDb ->
                 if (userFromDb == null) {
-                    // DBにユーザーが存在しない場合（初回ログイン時）、Firebaseの情報を元に新規作成
+                    // 初回ログイン時、Firebaseの情報を元に新規作成
                     val newUser = User(
                         userId = userData.userId,
                         name = userData.username ?: "新規ユーザー",
                         iconUrl = userData.profilePictureUrl
                     )
-                    gameDao.insertOrUpdateUser(newUser)
-                    _user.value = newUser
+                    // updateUserがファンアウト（関連データの一斉更新）を行う
+                    repository.updateUser(newUser)
+                    // _user.value = newUser // updateUserがDBを更新すれば、このFlowが自動で検知するので不要
                 } else {
+                    // データベースの変更をUIに通知する
                     _user.value = userFromDb
                 }
             }
         }
     }
 
-    // ユーザー情報を更新（または新規作成）する
-    // ユーザー情報を更新（または新規作成）する
-    fun updateUser(userName: String, iconUrl: String?) { // iconUrlを受け取るように変更
+    fun updateUser(userName: String, iconUrl: String?) {
         viewModelScope.launch {
-            val currentUser = user.value ?: return@launch // ユーザーがいなければ何もしない
+            val currentUser = user.value ?: return@launch
             val updatedUser = currentUser.copy(name = userName, iconUrl = iconUrl)
-            gameDao.insertOrUpdateUser(updatedUser)
+            repository.updateUser(updatedUser)
         }
     }
 }

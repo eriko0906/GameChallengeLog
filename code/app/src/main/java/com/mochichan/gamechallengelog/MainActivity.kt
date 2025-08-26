@@ -1,42 +1,53 @@
 package com.mochichan.gamechallengelog
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.animation.core.tween // ← これを追加
-import androidx.compose.animation.fadeIn // ← これを追加
-import androidx.compose.animation.fadeOut // ← これを追加
-import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.rememberNavController
-import com.mochichan.gamechallengelog.ui.screens.*
-import com.mochichan.gamechallengelog.ui.theme.GameChallengeLog2Theme
-import com.mochichan.gamechallengelog.ui.viewmodels.ProfileViewModel
-import com.mochichan.gamechallengelog.ui.viewmodels.RoomListViewModel
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
-import com.mochichan.gamechallengelog.ui.viewmodels.AuthViewModel
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.*
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import kotlin.getValue
-import com.mochichan.gamechallengelog.auth.GoogleAuthUiClient
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.android.gms.auth.api.identity.Identity
-import com.mochichan.gamechallengelog.auth.UserData // ← これを追加
+import com.mochichan.gamechallengelog.auth.GoogleAuthUiClient
+import com.mochichan.gamechallengelog.auth.UserData
+import com.mochichan.gamechallengelog.ui.screens.*
+import com.mochichan.gamechallengelog.ui.theme.GameChallengeLog2Theme
+import com.mochichan.gamechallengelog.ui.viewmodels.AuthViewModel
+import com.mochichan.gamechallengelog.ui.viewmodels.ProfileViewModel
+import com.mochichan.gamechallengelog.ui.viewmodels.RoomListViewModel
+import kotlinx.coroutines.launch
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.mochichan.gamechallengelog.ui.viewmodels.*
+import androidx.navigation.compose.*
+
+
+// AuthViewModelにgoogleAuthUiClientを渡すための専用の「工場」
+class AuthViewModelFactory(private val googleAuthUiClient: GoogleAuthUiClient) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T{
+        if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return AuthViewModel(googleAuthUiClient) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
 
 class MainActivity : ComponentActivity() {
 
-    private val googleAuthUiClient: GoogleAuthUiClient by lazy {
+    private val googleAuthUiClient by lazy {
         GoogleAuthUiClient(
             context = applicationContext,
             oneTapClient = Identity.getSignInClient(applicationContext)
@@ -45,17 +56,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               {
+        setContent {
             GameChallengeLog2Theme {
-                val authViewModel = viewModel<AuthViewModel>()
+                val authViewModel = viewModel<AuthViewModel>(factory = AuthViewModelFactory(googleAuthUiClient))
                 val signInState by authViewModel.signInState.collectAsState()
+                val signedInUser by authViewModel.signedInUser.collectAsState()
 
-                // --- ↓↓↓ 修正箇所1：ViewModelからサインイン状態を監視するように変更します ↓↓↓ ---
-                val signedInUser by authViewModel.signedInUser.collectAsState(initial = null)
-
-                // --- 修正箇所2：アプリ起動時に一度だけ、サインイン状態を確認します ---
                 LaunchedEffect(Unit) {
-                    authViewModel.checkInitialSignInState(googleAuthUiClient)
+                    authViewModel.checkInitialSignInState()
                 }
 
                 val launcher = rememberLauncherForActivityResult(
@@ -66,29 +74,19 @@ class MainActivity : ComponentActivity() {
                                 val signInResult = googleAuthUiClient.signInWithIntent(
                                     intent = result.data ?: return@launch
                                 )
-                                // --- 修正箇所3：サインイン結果をViewModelに通知します ---
-                                authViewModel.onSignInResult(
-                                    isSuccess = signInResult.data != null,
-                                    errorMessage = signInResult.errorMessage,
-                                    googleAuthUiClient
-                                )
+                                authViewModel.onSignInResult(signInResult)
                             }
                         }
                     }
                 )
 
-                // --- 変更点2：サインイン状態に応じて、表示する画面を切り替えます ---
                 if (signedInUser == null) {
-                    // まだサインインしていない場合：
-
-                    // サインインに成功したら、状態をリセットして画面を再描画させる
                     LaunchedEffect(key1 = signInState.isSuccess) {
                         if (signInState.isSuccess) {
                             Toast.makeText(applicationContext, "サインインしました", Toast.LENGTH_LONG).show()
                         }
                     }
 
-                    // ログイン画面を表示
                     LoginScreen(
                         state = signInState,
                         onSignInClick = {
@@ -107,8 +105,7 @@ class MainActivity : ComponentActivity() {
                     AppNavigator(
                         userData = signedInUser!!,
                         onSignOut = {
-                            // --- 修正箇所4：ViewModelにサインアウトを依頼します ---
-                            authViewModel.signOut(googleAuthUiClient)
+                            authViewModel.signOut()
                             Toast.makeText(applicationContext, "サインアウトしました", Toast.LENGTH_LONG).show()
                         }
                     )
@@ -118,59 +115,45 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
-fun AppNavigator(userData: UserData,onSignOut: () -> Unit) {
+fun AppNavigator(userData: UserData, onSignOut: () -> Unit) {
     val navController = rememberNavController()
-
-    // 各ViewModelを一度だけ作成し、必要な画面に渡していく
     val roomListViewModel: RoomListViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
 
-    // --- 変更点4：ViewModelの初期化処理をここで行います ---
-    // LaunchedEffectを使って、最初の表示時に一度だけユーザー情報をViewModelに読み込ませる
     LaunchedEffect(key1 = userData.userId) {
         profileViewModel.loadUser(userData)
         roomListViewModel.loadRoomsForUser(userData)
     }
-    NavHost(
-        navController = navController,
-        startDestination = "room_list",
-        enterTransition = { fadeIn(animationSpec = tween(200)) },
-        exitTransition = { fadeOut(animationSpec = tween(200)) },
-        popEnterTransition = { fadeIn(animationSpec = tween(200)) },
-        popExitTransition = { fadeOut(animationSpec = tween(200)) }
-    ) {
+
+    NavHost(navController = navController, startDestination = "room_list") {
         composable("room_list") {
-            // --- ↓↓↓ ViewModelを渡すように修正 ↓↓↓ ---
             RoomListScreen(
                 navController = navController,
                 roomListViewModel = roomListViewModel,
                 profileViewModel = profileViewModel
             )
         }
+        composable("create_room") {
+            CreateRoomScreen(
+                navController = navController,
+                viewModel = roomListViewModel
+            )
+        }
         composable(
-            route = "room_detail/{roomId}",
+            "room_detail/{roomId}",
             arguments = listOf(navArgument("roomId") { type = NavType.StringType })
         ) { backStackEntry ->
-            // 渡されてきたroomIdを取得し、RoomDetailScreenに渡す
             RoomDetailScreen(
                 navController = navController,
                 roomId = backStackEntry.arguments?.getString("roomId"),
                 profileViewModel = profileViewModel
             )
         }
-        composable("create_room") {
-            // ↓↓↓ ProfileViewModelを渡すように修正 ↓↓↓
-            CreateRoomScreen(
-                navController = navController,
-                viewModel = roomListViewModel,
-                profileViewModel = profileViewModel // ← profileViewModelを渡す
-            )
-        }
+        // ... (他の画面は、一旦ViewModelを受け取らないシンプルな形に戻します)
         composable("join_room") { JoinRoomScreen(navController = navController) }
         composable(
-            route = "game_management/{roomId}",
+            "game_management/{roomId}",
             arguments = listOf(navArgument("roomId") { type = NavType.StringType })
         ) { backStackEntry ->
             GameManagementScreen(
@@ -179,7 +162,7 @@ fun AppNavigator(userData: UserData,onSignOut: () -> Unit) {
             )
         }
         composable(
-            route = "record_match/{roomId}",
+            "record_match/{roomId}",
             arguments = listOf(navArgument("roomId") { type = NavType.StringType })
         ) { backStackEntry ->
             RecordMatchScreen(
@@ -188,7 +171,7 @@ fun AppNavigator(userData: UserData,onSignOut: () -> Unit) {
             )
         }
         composable(
-            route = "player_stats/{roomId}",
+            "player_stats/{roomId}",
             arguments = listOf(navArgument("roomId") { type = NavType.StringType })
         ) { backStackEntry ->
             PlayerStatsScreen(

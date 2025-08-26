@@ -55,7 +55,6 @@ fun ProfileScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             if (uri != null) {
-                // 永続的な読み取り許可を取得する
                 val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(uri, flag)
                 selectedImageUri = uri
@@ -73,7 +72,8 @@ fun ProfileScreen(
     LaunchedEffect(user) {
         user?.let {
             editingName = it.name
-            if (!it.iconUrl.isNullOrBlank()) {
+            // 画像選択直後はselectedImageUriを上書きしない
+            if (selectedImageUri == null && !it.iconUrl.isNullOrBlank()) {
                 selectedImageUri = Uri.parse(it.iconUrl)
             }
         }
